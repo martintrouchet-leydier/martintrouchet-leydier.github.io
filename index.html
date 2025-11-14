@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AIMES - Assistant Intelligent de Mise En Sécurité</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #000;
+            color: #333;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            position: fixed;
+        }
+
+        /* Container principal */
+        .phone-container {
+            width: 100%;
+            height: 100%;
+            max-width: 430px;
+            max-height: 932px;
+            margin: 0 auto;
+            background-color: white;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+
+        /* Header */
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background-color: #2196F3;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .menu-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            margin-right: 15px;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .app-title {
+            flex: 1;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .header-icons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .header-icon {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Map Container */
+        #map {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            bottom: 30%;
+            z-index: 1;
+            transition: bottom 0.3s ease;
+        }
+
+        /* Handle de redimensionnement */
+        .resize-handle {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background-color: #f0f0f0;
+            z-index: 1001;
+            cursor: row-resize;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-top: 1px solid #ddd;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .resize-handle::after {
+            content: "";
+            width: 40px;
+            height: 4px;
+            background-color: #ccc;
+            border-radius: 2px;
+        }
+
+        /* Bottom Panel */
+        .bottom-panel {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 30%;
+            bottom: 0;
+            background-color: white;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: height 0.3s ease;
+        }
+
+        .tab-header {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+            background-color: #f9f9f9;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 5px;
+            background: none;
+            border: none;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            color: #757575;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            color: #2196F3;
+            border-bottom: 2px solid #2196F3;
+        }
+
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        /* Map Controls */
+        .map-controls {
+            position: absolute;
+            bottom: calc(30% + 20px);
+            right: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: bottom 0.3s ease;
+        }
+
+        .map-control-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background-color: white;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .map-control-btn:active {
+            transform: scale(0.95);
+            background-color: #f0f0f0;
+        }
+
+        /* Bouton d'urgence */
+        .emergency-btn {
+            position: absolute;
+            bottom: calc(30% + 80px);
+            left: 10px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #F44336, #D32F2F);
+            border: none;
+            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+            z-index: 1000;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            transition: all 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+
+        .emergency-btn:active {
+            transform: scale(0.9);
+            box-shadow: 0 2px 6px rgba(244, 67, 54, 0.6);
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
+            }
+        }
+
+        /* Side Menu */
+        .side-menu {
+            position: absolute;
+            top: 60px;
+            left: -280px;
+            width: 280px;
+            height: calc(100% - 60px);
+            background-color: white;
+            z-index: 1001;
+            transition: left 0.3s ease;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .side-menu.open {
+            left: 0;
+        }
+
+        .menu-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            display: none;
+        }
+
+        .menu-overlay.open {
+            display: block;
+        }
+
+        .menu-section {
+            margin-bottom: 25px;
+        }
+
+        .menu-section h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #2196F3;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 5px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-item-icon {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        /* Alert System */
+        .alert-container {
+            position: absolute;
+            top: 70px;
+            left: 10px;
+            right: 10px;
+            z-index: 1002;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: flex-start;
+            animation: slideIn 0.5s ease;
+        }
+
+        .alert-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .alert-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .alert-btn {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: none;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .alert-btn:active {
+            transform: scale(0.95);
+        }
+
+        .alert-vigilance {
+            background-color: #FFF9C4;
+            border-left: 4px solid #FFC107;
+        }
+
+        .alert-alert {
+            background-color: #FFE0B2;
+            border-left: 4px solid #FF9800;
+        }
+
+        .alert-critical {
+            background-color: #FFCDD2;
+            border-left: 4px solid #F44336;
+        }
+
+        .alert-extreme {
+            background-color: #E1BEE7;
+            border-left: 4px solid #6A1B9A;
+        }
+
+        /* Refuge Button */
+        .refuge-btn {
+            position: absolute;
+            bottom: calc(30% + 30px);
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .refuge-btn:active {
+            transform: translateX(-50%) scale(0.98);
+        }
+
+        /* Modal de confirmation d'urgence */
+        .emergency-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .emergency-modal.open {
+            display: flex;
+        }
+
+        .emergency-modal-content {
+            background-color: white;
+            border-radius: 15px;
+            padding: 25px;
+            max-width: 320px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            animation: modalAppear 0.3s ease;
+        }
+
+        @keyframes modalAppear {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .emergency-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .emergency-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #F44336;
+        }
+
+        .emergency-message {
+            margin-bottom: 25px;
+            line-height: 1.5;
+            color: #555;
+        }
+
+        .emergency-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .emergency-action-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .emergency-action-btn:active {
+            transform: scale(0.95);
+        }
+
+        .emergency-confirm {
+            background-color: #F44336;
+            color: white;
+        }
+
+        .emergency-cancel {
+            background-color: #e0e0e0;
+            color: #333;
+        }
+
+        /* Data Cards */
+        .data-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .data-card-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .data-card-title {
+            font-weight: bold;
+            color: #2196F3;
+        }
+
+        .data-card-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .data-card-subtitle {
+            font-size: 12px;
+            color: #757575;
+        }
+
+        .water-level-bar {
+            height: 10px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+
+        .water-level-fill {
+            height: 100%;
+            border-radius: 5px;
+        }
+
+        .refuge-list {
+            list-style: none;
+        }
+
+        .refuge-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .refuge-item:last-child {
+            border-bottom: none;
+        }
+
+        .refuge-name {
+            font-weight: bold;
+        }
+
+        .refuge-distance {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        /* Animations */
+        @keyframes slideIn {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Custom Leaflet Styles */
+        .leaflet-control-zoom {
+            border: none !important;
+        }
+
+        .leaflet-control-zoom a {
+            background-color: white !important;
+            color: #333 !important;
+            border: none !important;
+            border-radius: 50% !important;
+            width: 40px !important;
+            height: 40px !important;
+            line-height: 40px !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+        }
+
+        .leaflet-control-zoom a:hover {
+            background-color: #f5f5f5 !important;
+        }
+
+        .leaflet-popup-content {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* Mode paysage */
+        @media (max-width: 430px) and (orientation: landscape) {
+            .phone-container {
+                max-height: 100vh;
+            }
+            
+            #map {
+                bottom: 40%;
+            }
+            
+            .bottom-panel {
+                height: 40%;
+            }
+            
+            .map-controls {
+                bottom: calc(40% + 20px);
+            }
+            
+            .emergency-btn {
+                bottom: calc(40% + 80px);
+            }
+            
+            .refuge-btn {
+                bottom: calc(40% + 30px);
+            }
+            
+            .tab-header {
+                flex-wrap: wrap;
+            }
+            
+            .tab-btn {
+                flex: 0 0 33.33%;
+                padding: 8px 5px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="phone-container">
+        <!-- Header -->
+        <div class="header">
+            <button class="menu-btn" id="menuBtn">☰</button>
+            <div class="app-title">AIMES</div>
+            <div class="header-icons">
+                <button class="header-icon" id="notificationsBtn">🔔</button>
+                <button class="header-icon" id="settingsBtn">⚙️</button>
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div id="map"></div>
+
+        <!-- Handle de redimensionnement -->
+        <div class="resize-handle" id="resizeHandle"></div>
+
+        <!-- Bottom Panel -->
+        <div class="bottom-panel" id="bottomPanel">
+            <div class="tab-header">
+                <button class="tab-btn active" data-tab="position">
+                    <span>📍</span>
+                    <span>Position</span>
+                </button>
+                <button class="tab-btn" data-tab="water">
+                    <span>🌊</span>
+                    <span>Niveaux d'eau</span>
+                </button>
+                <button class="tab-btn" data-tab="weather">
+                    <span>⛈️</span>
+                    <span>Météo</span>
+                </button>
+                <button class="tab-btn" data-tab="alerts">
+                    <span>🚨</span>
+                    <span>Alertes</span>
+                </button>
+                <button class="tab-btn" data-tab="refuges">
+                    <span>🛟</span>
+                    <span>Refuges</span>
+                </button>
+            </div>
+            <div class="tab-content">
+                <!-- Position Tab -->
+                <div class="tab-pane active" id="position-tab">
+                    <div class="data-card">
+                        <div class="data-card-header">
+                            <div class="data-card-title">Votre position</div>
+                        </div>
+                        <div class="data-card-value" id="current-coords">45.518495, 4.590160</div>
+                        <div class="data-card-subtitle">Rive de Gier, Loire</div>
+                    </div>
+                    
+                    <div class="data-card">
+                        <div class="data-card-header">
+                            <div class="data-card-title">Altitude</div>
+                        </div>
+                        <div class="data-card-value" id="current-altitude">245 m</div>
+                    </div>
+                    
+                    <div class="data-card">
+                        <div class="data-card-header">
+                            <div class="data-card-title">Zone de risque</div>
+                        </div>
+                        <div class="data-card-value" id="risk-level">Modéré</div>
+                        <div class="data-card-subtitle">Surveillance recommandée</div>
+                    </div>
+                </div>
+                
+                <!-- Water Levels Tab -->
+                <div class="tab-pane" id="water-tab">
+                    <div class="data-card">
+                        <div class="data-card-header">
+                            <div class="data-card-title">Station Gier - Rive de Gier</div>
+                            <div class="data-card-value">1.85 m</div>
+                        </div>
+                        <div class="data-card-subtitle">Seuil d'alerte: 2.10 m</div>
+                        <div class="water-level-bar">
+                            <div class="water-level-fill" style="width: 70%; background-color: #FF9800;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="data-card">
+                        <div class="data-card-header">
+                            <div class="data-card-title">Station Gier - Saint-Chamond</div>
+                            <div class="data-card-value">1.45 m</div>
+                        </div>
+                        <div class="data-card-subtitle">Seuil d'alerte: 1.80 m</div>
+                        <div class="water-level-bar">
+                            <div class="water-level-fill" style="width: 55%; background-color: #FFC107;"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Weather Tab -->
+                <div class="tab-pane" id="weather-tab">
+                    <div class="data-card">
+                        <div class="data-card-header">
+                            <div class="data-card-title">Précipitations actuelles</div>
+                            <div class="data-card-value">12 mm/h</div>
+                        </div>
+                        <div class="data-card-subtitle">Pluie modérée</div>
+                    </div>
+                    
+                    <div class="data-card">
+                        <div class="data-card-header">
+                            <div class="data-card-title">Prévisions 24h</div>
+                        </div>
+                        <div class="data-card-subtitle">Pluie forte attendue (25-35 mm)</div>
+                    </div>
+                </div>
+                
+                <!-- Alerts Tab -->
+                <div class="tab-pane" id="alerts-tab">
+                    <div class="alert alert-vigilance">
+                        <div class="alert-icon">🟡</div>
+                        <div class="alert-content">
+                            <div class="alert-title">Vigilance crue - Gier</div>
+                            <div>Niveaux d'eau en hausse. Surveillance recommandée.</div>
+                            <div class="alert-actions">
+                                <button class="alert-btn" style="background-color: #FFC107; color: white;">Détails</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-alert">
+                        <div class="alert-icon">🟠</div>
+                        <div class="alert-content">
+                            <div class="alert-title">Alerte précipitations</div>
+                            <div>Pluies intenses attendues dans les 6h.</div>
+                            <div class="alert-actions">
+                                <button class="alert-btn" style="background-color: #FF9800; color: white;">Détails</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Refuges Tab -->
+                <div class="tab-pane" id="refuges-tab">
+                    <ul class="refuge-list">
+                        <li class="refuge-item">
+                            <div class="refuge-name">Gymnase Municipal</div>
+                            <div class="refuge-distance">0.8 km</div>
+                        </li>
+                        <li class="refuge-item">
+                            <div class="refuge-name">École Primaire Centre</div>
+                            <div class="refuge-distance">1.2 km</div>
+                        </li>
+                        <li class="refuge-item">
+                            <div class="refuge-name">Mairie de Rive de Gier</div>
+                            <div class="refuge-distance">1.5 km</div>
+                        </li>
+                        <li class="refuge-item">
+                            <div class="refuge-name">Centre de Secours</div>
+                            <div class="refuge-distance">2.1 km</div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Map Controls -->
+        <div class="map-controls">
+            <button class="map-control-btn" id="zoomInBtn">+</button>
+            <button class="map-control-btn" id="zoomOutBtn">-</button>
+            <button class="map-control-btn" id="locationBtn">📍</button>
+        </div>
+
+        <!-- Bouton d'urgence -->
+        <button class="emergency-btn" id="emergencyBtn">
+            🚨
+        </button>
+
+        <!-- Refuge Button -->
+        <button class="refuge-btn" id="refugeBtn">
+            🛟 Trouver le refuge le plus proche
+        </button>
+
+        <!-- Modal de confirmation d'urgence -->
+        <div class="emergency-modal" id="emergencyModal">
+            <div class="emergency-modal-content">
+                <div class="emergency-icon">🚨</div>
+                <div class="emergency-title">Alerte d'urgence</div>
+                <div class="emergency-message">
+                    Êtes-vous sûr de vouloir alerter les services d'urgence (SDIS) ?<br>
+                    Cette action enverra votre position et un signal de détresse.
+                </div>
+                <div class="emergency-actions">
+                    <button class="emergency-action-btn emergency-cancel" id="cancelEmergencyBtn">Annuler</button>
+                    <button class="emergency-action-btn emergency-confirm" id="confirmEmergencyBtn">Alerter le SDIS</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Side Menu -->
+        <div class="side-menu" id="sideMenu">
+            <div class="menu-section">
+                <h3>Couches cartographiques</h3>
+                <div class="menu-item">
+                    <span class="menu-item-icon">🌊</span>
+                    <span>Zones inondables</span>
+                </div>
+                <div class="menu-item">
+                    <span class="menu-item-icon">🚨</span>
+                    <span>Points de danger</span>
+                </div>
+                <div class="menu-item">
+                    <span class="menu-item-icon">🛟</span>
+                    <span>Points de secours</span>
+                </div>
+                <div class="menu-item">
+                    <span class="menu-item-icon">🗺️</span>
+                    <span>Topographie</span>
+                </div>
+            </div>
+            
+            <div class="menu-section">
+                <h3>Paramètres</h3>
+                <div class="menu-item">
+                    <span class="menu-item-icon">🔔</span>
+                    <span>Notifications</span>
+                </div>
+                <div class="menu-item">
+                    <span class="menu-item-icon">🌙</span>
+                    <span>Mode nuit</span>
+                </div>
+                <div class="menu-item">
+                    <span class="menu-item-icon">🌐</span>
+                    <span>Langue</span>
+                </div>
+            </div>
+            
+            <div class="menu-section">
+                <h3>Aide et informations</h3>
+                <div class="menu-item">
+                    <span class="menu-item-icon">📋</span>
+                    <span>Guide de sécurité</span>
+                </div>
+                <div class="menu-item">
+                    <span class="menu-item-icon">ℹ️</span>
+                    <span>À propos</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menu Overlay -->
+        <div class="menu-overlay" id="menuOverlay"></div>
+
+        <!-- Alert Container -->
+        <div class="alert-container" id="alertContainer"></div>
+    </div>
+
+    <script>
+        // Données simulées
+        const simulatedData = {
+            userLocation: [45.518495, 4.590160],
+            floodZones: [
+                {
+                    coords: [[45.515, 4.585], [45.515, 4.595], [45.525, 4.595], [45.525, 4.585]],
+                    riskLevel: 'medium',
+                    description: 'Zone inondable historique'
+                },
+                {
+                    coords: [[45.520, 4.588], [45.520, 4.592], [45.523, 4.592], [45.523, 4.588]],
+                    riskLevel: 'high',
+                    description: 'Lit majeur du Gier'
+                }
+            ],
+            waterStations: [
+                { name: 'Gier - Rive de Gier', coords: [45.519, 4.591], level: 1.85, alertThreshold: 2.10 },
+                { name: 'Gier - Saint-Chamond', coords: [45.480, 4.520], level: 1.45, alertThreshold: 1.80 }
+            ],
+            rescuePoints: [
+                { name: 'Gymnase Municipal', coords: [45.522, 4.595], type: 'refuge', capacity: 150 },
+                { name: 'École Primaire Centre', coords: [45.516, 4.588], type: 'refuge', capacity: 80 },
+                { name: 'Mairie de Rive de Gier', coords: [45.525, 4.600], type: 'refuge', capacity: 100 },
+                { name: 'Centre de Secours', coords: [45.530, 4.580], type: 'fire_station', capacity: null },
+                { name: 'Hôpital Local', coords: [45.510, 4.610], type: 'hospital', capacity: null }
+            ],
+            alerts: [
+                {
+                    id: 1,
+                    type: 'vigilance',
+                    title: 'Vigilance crue - Gier',
+                    message: 'Niveaux d\'eau en hausse. Surveillance recommandée.',
+                    location: 'Rive de Gier',
+                    timestamp: new Date(),
+                    active: true
+                },
+                {
+                    id: 2,
+                    type: 'alert',
+                    title: 'Alerte précipitations',
+                    message: 'Pluies intenses attendues dans les 6h.',
+                    location: 'Vallée du Gier',
+                    timestamp: new Date(),
+                    active: true
+                }
+            ]
+        };
+
+        // Initialisation de la carte
+        const map = L.map('map').setView(simulatedData.userLocation, 14);
+
+        // Ajout de la couche de carte (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Marqueur de position utilisateur
+        const userMarker = L.marker(simulatedData.userLocation, {
+            icon: L.divIcon({
+                className: 'user-marker',
+                html: '📍',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30]
+            })
+        }).addTo(map);
+
+        // Cercle de précision de géolocalisation
+        const accuracyCircle = L.circle(simulatedData.userLocation, {
+            color: '#2196F3',
+            fillColor: '#B3E5FC',
+            fillOpacity: 0.2,
+            radius: 50
+        }).addTo(map);
+
+        // Ajout des zones inondables (sans carrés bleus)
+        simulatedData.floodZones.forEach(zone => {
+            let color;
+            switch(zone.riskLevel) {
+                case 'low': color = '#B3E5FC'; break;
+                case 'medium': color = '#2196F3'; break;
+                case 'high': color = '#1565C0'; break;
+                case 'critical': color = '#0D47A1'; break;
+                default: color = '#2196F3';
+            }
+            
+            const polygon = L.polygon(zone.coords, {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.3,
+                weight: 2,
+                dashArray: '5, 5'
+            }).addTo(map);
+            
+            polygon.bindPopup(`<b>${zone.description}</b><br>Niveau de risque: ${zone.riskLevel}`);
+        });
+
+        // Ajout des stations d'eau
+        simulatedData.waterStations.forEach(station => {
+            const marker = L.marker(station.coords, {
+                icon: L.divIcon({
+                    className: 'water-station-marker',
+                    html: '🌊',
+                    iconSize: [25, 25],
+                    iconAnchor: [12, 25]
+                })
+            }).addTo(map);
+            
+            const alertLevel = station.level >= station.alertThreshold ? 'danger' : 
+                              station.level >= station.alertThreshold * 0.8 ? 'warning' : 'normal';
+            
+            marker.bindPopup(`
+                <b>${station.name}</b><br>
+                Niveau: ${station.level}m<br>
+                Seuil d'alerte: ${station.alertThreshold}m<br>
+                Statut: ${alertLevel === 'danger' ? '⚠️ Alerte' : alertLevel === 'warning' ? '⚠️ Surveillance' : 'Normal'}
+            `);
+        });
+
+        // Ajout des points de secours
+        simulatedData.rescuePoints.forEach(point => {
+            let icon;
+            switch(point.type) {
+                case 'refuge': icon = '🛟'; break;
+                case 'fire_station': icon = '🚒'; break;
+                case 'hospital': icon = '🏥'; break;
+                default: icon = '✅';
+            }
+            
+            const marker = L.marker(point.coords, {
+                icon: L.divIcon({
+                    className: 'rescue-point-marker',
+                    html: icon,
+                    iconSize: [25, 25],
+                    iconAnchor: [12, 25]
+                })
+            }).addTo(map);
+            
+            const capacityInfo = point.capacity ? `Capacité: ${point.capacity} personnes` : '';
+            marker.bindPopup(`<b>${point.name}</b><br>${capacityInfo}`);
+        });
+
+        // Gestion des onglets
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const tabPanes = document.querySelectorAll('.tab-pane');
+        
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabId = button.getAttribute('data-tab');
+                
+                // Retirer la classe active de tous les boutons et panneaux
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabPanes.forEach(pane => pane.classList.remove('active'));
+                
+                // Ajouter la classe active au bouton et panneau correspondants
+                button.classList.add('active');
+                document.getElementById(`${tabId}-tab`).classList.add('active');
+            });
+        });
+
+        // Gestion du menu latéral
+        const menuBtn = document.getElementById('menuBtn');
+        const sideMenu = document.getElementById('sideMenu');
+        const menuOverlay = document.getElementById('menuOverlay');
+        
+        menuBtn.addEventListener('click', () => {
+            sideMenu.classList.add('open');
+            menuOverlay.classList.add('open');
+        });
+        
+        menuOverlay.addEventListener('click', () => {
+            sideMenu.classList.remove('open');
+            menuOverlay.classList.remove('open');
+        });
+
+        // Gestion des contrôles de carte
+        document.getElementById('zoomInBtn').addEventListener('click', () => {
+            map.zoomIn();
+        });
+        
+        document.getElementById('zoomOutBtn').addEventListener('click', () => {
+            map.zoomOut();
+        });
+        
+        document.getElementById('locationBtn').addEventListener('click', () => {
+            map.setView(simulatedData.userLocation, 16);
+        });
+
+        // Gestion du bouton de refuge
+        document.getElementById('refugeBtn').addEventListener('click', () => {
+            // Simuler le calcul d'itinéraire vers le refuge le plus proche
+            const nearestRefuge = simulatedData.rescuePoints[0]; // Gymnase Municipal
+            showAlert({
+                type: 'info',
+                title: 'Itinéraire calculé',
+                message: `Direction: ${nearestRefuge.name} (0.8 km)`,
+                actions: [
+                    { text: 'Suivre', color: '#4CAF50', action: 'followRoute' },
+                    { text: 'Annuler', color: '#757575', action: 'cancel' }
+                ]
+            });
+        });
+
+        // Gestion du bouton d'urgence
+        const emergencyBtn = document.getElementById('emergencyBtn');
+        const emergencyModal = document.getElementById('emergencyModal');
+        const cancelEmergencyBtn = document.getElementById('cancelEmergencyBtn');
+        const confirmEmergencyBtn = document.getElementById('confirmEmergencyBtn');
+        
+        emergencyBtn.addEventListener('click', () => {
+            emergencyModal.classList.add('open');
+        });
+        
+        cancelEmergencyBtn.addEventListener('click', () => {
+            emergencyModal.classList.remove('open');
+        });
+        
+        confirmEmergencyBtn.addEventListener('click', () => {
+            // Simuler l'envoi de l'alerte au SDIS
+            showAlert({
+                type: 'critical',
+                title: 'Alerte SDIS envoyée',
+                message: 'Votre position a été transmise aux services d\'urgence. Restez en sécurité.',
+                actions: [
+                    { text: 'OK', color: '#F44336', action: 'close' }
+                ]
+            });
+            
+            emergencyModal.classList.remove('open');
+            
+            // Simuler l'envoi des données de position
+            console.log('Alerte SDIS envoyée avec position:', simulatedData.userLocation);
+        });
+
+        // Fonction pour afficher les alertes
+        function showAlert(alertData) {
+            const alertContainer = document.getElementById('alertContainer');
+            
+            let alertClass;
+            switch(alertData.type) {
+                case 'vigilance': alertClass = 'alert-vigilance'; break;
+                case 'alert': alertClass = 'alert-alert'; break;
+                case 'critical': alertClass = 'alert-critical'; break;
+                case 'extreme': alertClass = 'alert-extreme'; break;
+                default: alertClass = 'alert-vigilance';
+            }
+            
+            let alertIcon;
+            switch(alertData.type) {
+                case 'vigilance': alertIcon = '🟡'; break;
+                case 'alert': alertIcon = '🟠'; break;
+                case 'critical': alertIcon = '🔴'; break;
+                case 'extreme': alertIcon = '🟣'; break;
+                default: alertIcon = '🟡';
+            }
+            
+            const alertElement = document.createElement('div');
+            alertElement.className = `alert ${alertClass}`;
+            alertElement.innerHTML = `
+                <div class="alert-icon">${alertIcon}</div>
+                <div class="alert-content">
+                    <div class="alert-title">${alertData.title}</div>
+                    <div>${alertData.message}</div>
+                    <div class="alert-actions">
+                        ${alertData.actions ? alertData.actions.map(action => 
+                            `<button class="alert-btn" style="background-color: ${action.color}; color: white;" data-action="${action.action}">${action.text}</button>`
+                        ).join('') : ''}
+                    </div>
+                </div>
+            `;
+            
+            alertContainer.appendChild(alertElement);
+            
+            // Ajouter les événements aux boutons d'action
+            const actionButtons = alertElement.querySelectorAll('.alert-btn');
+            actionButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    handleAlertAction(this.getAttribute('data-action'), alertData);
+                    alertElement.remove();
+                });
+            });
+            
+            // Supprimer l'alerte après 30 secondes si pas d'interaction
+            setTimeout(() => {
+                if (alertElement.parentNode) {
+                    alertElement.remove();
+                }
+            }, 30000);
+        }
+
+        // Gestion des actions des alertes
+        function handleAlertAction(action, alertData) {
+            switch(action) {
+                case 'followRoute':
+                    // Simuler l'affichage de l'itinéraire sur la carte
+                    const nearestRefuge = simulatedData.rescuePoints[0];
+                    const routeCoordinates = [
+                        simulatedData.userLocation,
+                        [45.520, 4.593],
+                        [45.521, 4.594],
+                        nearestRefuge.coords
+                    ];
+                    
+                    const routeLine = L.polyline(routeCoordinates, {
+                        color: '#4CAF50',
+                        weight: 6,
+                        opacity: 0.8
+                    }).addTo(map);
+                    
+                    // Centrer la carte sur l'itinéraire
+                    map.fitBounds(routeLine.getBounds());
+                    break;
+                    
+                case 'details':
+                    // Afficher plus de détails dans l'onglet alertes
+                    document.querySelector('[data-tab="alerts"]').click();
+                    break;
+                    
+                case 'evacuation':
+                    // Calculer l'itinéraire d'évacuation
+                    const safeZone = [45.530, 4.610]; // Zone sécurisée simulée
+                    const evacuationRoute = [
+                        simulatedData.userLocation,
+                        [45.525, 4.600],
+                        [45.528, 4.605],
+                        safeZone
+                    ];
+                    
+                    const evacuationLine = L.polyline(evacuationRoute, {
+                        color: '#4CAF50',
+                        weight: 6,
+                        opacity: 0.8,
+                        dashArray: '10, 10'
+                    }).addTo(map);
+                    
+                    map.fitBounds(evacuationLine.getBounds());
+                    break;
+                    
+                case 'close':
+                    // Fermer l'alerte (rien à faire)
+                    break;
+                    
+                case 'cancel':
+                    // Annuler l'action (rien à faire)
+                    break;
+                    
+                default:
+                    console.log('Action non gérée:', action);
+            }
+        }
+
+        // Système de redimensionnement du panneau inférieur
+        const resizeHandle = document.getElementById('resizeHandle');
+        const bottomPanel = document.getElementById('bottomPanel');
+        const mapElement = document.getElementById('map');
+        const mapControls = document.querySelector('.map-controls');
+        const refugeBtn = document.getElementById('refugeBtn');
+        
+        let isResizing = false;
+        
+        resizeHandle.addEventListener('mousedown', startResize);
+        resizeHandle.addEventListener('touchstart', startResize);
+        
+        function startResize(e) {
+            isResizing = true;
+            document.addEventListener('mousemove', resize);
+            document.addEventListener('touchmove', resize);
+            document.addEventListener('mouseup', stopResize);
+            document.addEventListener('touchend', stopResize);
+            
+            // Empêcher le défilement pendant le redimensionnement
+            e.preventDefault();
+        }
+        
+        function resize(e) {
+            if (!isResizing) return;
+            
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            if (!clientY) return;
+            
+            const containerHeight = document.querySelector('.phone-container').clientHeight;
+            const newHeight = containerHeight - clientY;
+            
+            // Limites de redimensionnement (entre 20% et 70% de la hauteur)
+            const minHeight = containerHeight * 0.2;
+            const maxHeight = containerHeight * 0.7;
+            
+            if (newHeight >= minHeight && newHeight <= maxHeight) {
+                bottomPanel.style.height = `${newHeight}px`;
+                mapElement.style.bottom = `${newHeight}px`;
+                mapControls.style.bottom = `${newHeight + 20}px`;
+                emergencyBtn.style.bottom = `${newHeight + 80}px`;
+                refugeBtn.style.bottom = `${newHeight + 30}px`;
+            }
+        }
+        
+        function stopResize() {
+            isResizing = false;
+            document.removeEventListener('mousemove', resize);
+            document.removeEventListener('touchmove', resize);
+            document.removeEventListener('mouseup', stopResize);
+            document.removeEventListener('touchend', stopResize);
+        }
+
+        // Simulation d'alertes avec boutons fonctionnels
+        setTimeout(() => {
+            showAlert({
+                type: 'alert',
+                title: 'Crue du Gier en cours',
+                message: 'Montée des eaux rapide détectée. Préparer l\'évacuation si nécessaire.',
+                actions: [
+                    { text: 'Itinéraire d\'évacuation', color: '#4CAF50', action: 'evacuation' },
+                    { text: 'Ignorer', color: '#757575', action: 'close' }
+                ]
+            });
+        }, 5000);
+
+        setTimeout(() => {
+            showAlert({
+                type: 'critical',
+                title: 'Alerte inondation imminente',
+                message: 'Rupture de digue possible dans les 30 minutes. Évacuez immédiatement.',
+                actions: [
+                    { text: 'Itinéraire vers refuge', color: '#4CAF50', action: 'followRoute' },
+                    { text: 'Détails', color: '#2196F3', action: 'details' }
+                ]
+            });
+        }, 15000);
+
+        // Simulation de données météo en temps réel
+        setInterval(() => {
+            // Mettre à jour les données de précipitations
+            const precipitationElement = document.querySelector('#weather-tab .data-card-value');
+            if (precipitationElement) {
+                const currentPrecip = Math.floor(Math.random() * 5) + 10; // 10-15 mm/h
+                precipitationElement.textContent = `${currentPrecip} mm/h`;
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
